@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react/dist/iconify.js";
-import { getPendingWithDrawals, processWithdrawal } from "../../utils/apiService";
+import {
+  getPendingWithDrawals,
+  getWithdrawalGateways,
+  processWithdrawal,
+} from "../../utils/apiService";
 
 // Mock data for demonstration
 // const withdrawRequests = [
@@ -41,16 +45,13 @@ import { getPendingWithDrawals, processWithdrawal } from "../../utils/apiService
 //   },
 // ];
 
-// Mock gateway list
-const gateways = ["Paytm", "Razorpay", "Coinbase", "Bank Transfer"];
-
 const NewWithdraw = () => {
   const [withdraws, setWithdraws] = useState([]);
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
     limit: 10,
-    pages: 0
+    pages: 0,
   });
   const [loading, setLoading] = useState(true);
   const [isAcceptModalOpen, setIsAcceptModalOpen] = useState(false);
@@ -58,25 +59,38 @@ const NewWithdraw = () => {
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [selectedGateway, setSelectedGateway] = useState("");
   const [rejectRemark, setRejectRemark] = useState("");
+  const [gateways, setWithdrawalGateways] = useState([]);
   const navigate = useNavigate();
 
   const fetchWithdrawals = async (page = 1) => {
     setLoading(true);
     try {
       const data = await getPendingWithDrawals(page, pagination.limit);
-      console.log('API Response:', data);
+      console.log("API Response:", data);
 
       if (data.success) {
         setWithdraws(data.withdrawals);
         setPagination(data.pagination);
       }
     } catch (error) {
-      console.error('Error fetching withdrawals:', error);
+      console.error("Error fetching withdrawals:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    const fetchGateways = async () => {
+      try {
+        const withdrawals = await getWithdrawalGateways();
+        setWithdrawalGateways(withdrawals.gateways);
+      } catch (error) {
+        console.error("Error fetching gateways:", error);
+      }
+    };
+
+    fetchGateways();
+  }, []);
   useEffect(() => {
     fetchWithdrawals(1);
   }, []);
@@ -90,8 +104,6 @@ const NewWithdraw = () => {
     return () => {
       document.body.removeChild(modalContainer);
     };
-
-
   }, []);
 
   const handlePageChange = (newPage) => {
@@ -101,7 +113,7 @@ const NewWithdraw = () => {
   };
 
   const handleLimitChange = (newLimit) => {
-    setPagination(prev => ({ ...prev, limit: newLimit, page: 1 }));
+    setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
     fetchWithdrawals(1);
   };
 
@@ -119,52 +131,60 @@ const NewWithdraw = () => {
   };
 
   // Handle Gateway Selection
-  const handleGatewaySelect = () => {
-    if (!selectedGateway) {
-      alert("Please select a gateway.");
-      return;
+  const handleGatewaySelect = async () => {
+    try {
+      if (!selectedGateway) {
+        alert("Please select a gateway.");
+        return;
+      }
+      const withdrawalData = {
+        withdrawal_id: selectedOrderId,
+        action: "approve",
+        gateway: selectedGateway,
+      };
+
+      const result = await processWithdrawal(withdrawalData);
+
+      setWithdraws(
+        withdraws.filter((item) => item.orderId !== selectedOrderId)
+      );
+      setIsAcceptModalOpen(false);
+      setSelectedOrderId(null);
+      setSelectedGateway("");
+      fetchWithdrawals(1);
+    } catch (error) {
+      console.log(error);
     }
-    console.log(
-      `Accepted Order ID: ${selectedOrderId} via Gateway: ${selectedGateway}`
-    );
-    setWithdraws(withdraws.filter((item) => item.orderId !== selectedOrderId));
-    setIsAcceptModalOpen(false);
-    setSelectedOrderId(null);
-    setSelectedGateway("");
   };
 
   // Handle Reject Submission
-    const handleRejectSubmit = async () => {
+  const handleRejectSubmit = async () => {
     if (!rejectRemark.trim()) {
       alert("Please provide a reason for rejection.");
       return;
     }
-    
-    
+
     try {
       const withdrawalData = {
         withdrawal_id: selectedOrderId,
         action: "reject",
-        notes: rejectRemark.trim()
+        notes: rejectRemark.trim(),
       };
-      
+
       const result = await processWithdrawal(withdrawalData);
-      
+
       if (result.success) {
-        alert(result.message || 'Withdrawal rejected successfully');
-        
         // Refresh data after successful action
         await fetchWithdrawals(pagination.page);
-        
         // Close modal and reset state
-    setIsRejectModalOpen(false);
-    setSelectedOrderId(null);
-    setRejectRemark("");
+        setIsRejectModalOpen(false);
+        setSelectedOrderId(null);
+        setRejectRemark("");
+        fetchWithdrawals(1);
       }
     } catch (error) {
-      console.error('Error rejecting withdrawal:', error);
-      alert(error.message || 'Failed to reject withdrawal');
-    } 
+      console.error("Error rejecting withdrawal:", error);
+    }
   };
   // Close Modals
   const closeAcceptModal = () => {
@@ -187,7 +207,10 @@ const NewWithdraw = () => {
     const getPageNumbers = () => {
       const pages = [];
       const maxVisiblePages = 5;
-      let start = Math.max(1, pagination.page - Math.floor(maxVisiblePages / 2));
+      let start = Math.max(
+        1,
+        pagination.page - Math.floor(maxVisiblePages / 2)
+      );
       let end = Math.min(pagination.pages, start + maxVisiblePages - 1);
 
       if (end - start + 1 < maxVisiblePages) {
@@ -204,15 +227,17 @@ const NewWithdraw = () => {
       <div className="d-flex justify-content-between align-items-center mt-4">
         <div className="d-flex align-items-center gap-3">
           <span className="text-sm text-muted">
-            Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
-            {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+            Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
+            {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
             {pagination.total} entries
           </span>
         </div>
 
         <nav aria-label="Pagination">
           <ul className="pagination pagination-sm mb-0">
-            <li className={`page-item ${pagination.page === 1 ? 'disabled' : ''}`}>
+            <li
+              className={`page-item ${pagination.page === 1 ? "disabled" : ""}`}
+            >
               <button
                 className="page-link"
                 onClick={() => handlePageChange(pagination.page - 1)}
@@ -222,8 +247,13 @@ const NewWithdraw = () => {
               </button>
             </li>
 
-            {getPageNumbers().map(pageNum => (
-              <li key={pageNum} className={`page-item ${pagination.page === pageNum ? 'active' : ''}`}>
+            {getPageNumbers().map((pageNum) => (
+              <li
+                key={pageNum}
+                className={`page-item ${
+                  pagination.page === pageNum ? "active" : ""
+                }`}
+              >
                 <button
                   className="page-link"
                   onClick={() => handlePageChange(pageNum)}
@@ -233,7 +263,11 @@ const NewWithdraw = () => {
               </li>
             ))}
 
-            <li className={`page-item ${pagination.page === pagination.pages ? 'disabled' : ''}`}>
+            <li
+              className={`page-item ${
+                pagination.page === pagination.pages ? "disabled" : ""
+              }`}
+            >
               <button
                 className="page-link"
                 onClick={() => handlePageChange(pagination.page + 1)}
@@ -319,19 +353,21 @@ const NewWithdraw = () => {
                       <td>{withdraw.wallet_balance}</td>
                       <td>-</td> {/* Placeholder for totalRechargeAmount */}
                       <td>-</td> {/* Placeholder for totalWithdrawAmount */}
-                      <td>{withdraw.bank_name || '-'}</td>
-                      <td>{withdraw.account_number || '-'}</td>
-                      <td>{withdraw.ifsc_code || '-'}</td>
-                      <td>{withdraw.usdt_network || '-'}</td>
-                      <td>{withdraw.usdt_address || '-'}</td>
-                      <td>{withdraw.address_alias || '-'}</td>
+                      <td>{withdraw.bank_name || "-"}</td>
+                      <td>{withdraw.account_number || "-"}</td>
+                      <td>{withdraw.ifsc_code || "-"}</td>
+                      <td>{withdraw.usdt_network || "-"}</td>
+                      <td>{withdraw.usdt_address || "-"}</td>
+                      <td>{withdraw.address_alias || "-"}</td>
                       <td>{new Date(withdraw.created_at).toLocaleString()}</td>
                       <td className="text-center">
                         <div className="flex justify-center gap-2">
                           <button
                             type="button"
                             className="btn btn-sm btn-success radius-8 d-inline-flex align-items-center gap-1"
-                            onClick={() => openAcceptModal(withdraw.order_id)}
+                            onClick={() =>
+                              openAcceptModal(withdraw.withdrawal_id)
+                            }
                           >
                             <Icon
                               icon="simple-line-icons:check"
@@ -342,12 +378,11 @@ const NewWithdraw = () => {
                           <button
                             type="button"
                             className="btn btn-sm btn-danger radius-8 d-inline-flex align-items-center gap-1"
-                            onClick={() => openRejectModal(withdraw.order_id)}
+                            onClick={() =>
+                              openRejectModal(withdraw.withdrawal_id)
+                            }
                           >
-                            <Icon
-                              icon="ic:twotone-close"
-                              className="text-xl"
-                            />
+                            <Icon icon="ic:twotone-close" className="text-xl" />
                             Reject
                           </button>
                         </div>
@@ -439,13 +474,19 @@ const NewWithdraw = () => {
                   >
                     <option value="">Select a gateway</option>
                     {gateways.map((gateway) => (
-                      <option key={gateway} value={gateway}>
-                        {gateway}
+                      <option key={gateway} value={gateway?.gateway_name}>
+                        {gateway?.gateway_name}
                       </option>
                     ))}
                   </select>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "0.75rem",
+                  }}
+                >
                   <button
                     type="button"
                     onClick={closeAcceptModal}
@@ -458,7 +499,10 @@ const NewWithdraw = () => {
                     onClick={handleGatewaySelect}
                     className="btn btn-sm btn-success radius-8 px-3 py-1.5"
                   >
-                    <Icon icon="simple-line-icons:check" style={{ fontSize: "1rem" }} />
+                    <Icon
+                      icon="simple-line-icons:check"
+                      style={{ fontSize: "1rem" }}
+                    />
                     Proceed
                   </button>
                 </div>
@@ -506,7 +550,13 @@ const NewWithdraw = () => {
                     alignItems: "center",
                   }}
                 >
-                  <h3 style={{ color: "white", fontSize: "1.25rem", fontWeight: "600" }}>
+                  <h3
+                    style={{
+                      color: "white",
+                      fontSize: "1.25rem",
+                      fontWeight: "600",
+                    }}
+                  >
                     Reject Withdrawal
                   </h3>
                   <button
@@ -549,12 +599,19 @@ const NewWithdraw = () => {
                       placeholder="Enter reason for rejection..."
                       aria-label="Reason for rejecting withdrawal"
                       onFocus={(e) =>
-                        (e.target.style.boxShadow = "0 0 0 3px rgba(239, 68, 68, 0.2)")
+                        (e.target.style.boxShadow =
+                          "0 0 0 3px rgba(239, 68, 68, 0.2)")
                       }
                       onBlur={(e) => (e.target.style.boxShadow = "none")}
                     />
                   </div>
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      gap: "0.75rem",
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={closeRejectModal}
@@ -567,8 +624,12 @@ const NewWithdraw = () => {
                         fontWeight: "500",
                         transition: "background-color 0.2s",
                       }}
-                      onMouseOver={(e) => (e.target.style.backgroundColor = "#d1d5db")}
-                      onMouseOut={(e) => (e.target.style.backgroundColor = "#e5e7eb")}
+                      onMouseOver={(e) =>
+                        (e.target.style.backgroundColor = "#d1d5db")
+                      }
+                      onMouseOut={(e) =>
+                        (e.target.style.backgroundColor = "#e5e7eb")
+                      }
                     >
                       Cancel
                     </button>
@@ -587,10 +648,17 @@ const NewWithdraw = () => {
                         gap: "0.25rem",
                         transition: "background-color 0.2s",
                       }}
-                      onMouseOver={(e) => (e.target.style.backgroundColor = "#b91c1c")}
-                      onMouseOut={(e) => (e.target.style.backgroundColor = "#ef4444")}
+                      onMouseOver={(e) =>
+                        (e.target.style.backgroundColor = "#b91c1c")
+                      }
+                      onMouseOut={(e) =>
+                        (e.target.style.backgroundColor = "#ef4444")
+                      }
                     >
-                      <Icon icon="ic:twotone-close" style={{ fontSize: "1rem" }} />
+                      <Icon
+                        icon="ic:twotone-close"
+                        style={{ fontSize: "1rem" }}
+                      />
                       Confirm
                     </button>
                   </div>

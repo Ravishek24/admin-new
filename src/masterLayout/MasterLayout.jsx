@@ -232,7 +232,7 @@ const MasterLayout = ({ children }) => {
                     <span>New Withdraw</span>
                   </NavLink>
                 </li>
-                <li>
+                {/* <li>
                   <NavLink
                     to="/submitted-withdraw"
                     className={(navData) =>
@@ -242,7 +242,7 @@ const MasterLayout = ({ children }) => {
                     <Icon icon="hugeicons:invoice-03" className="menu-icon" />
                     <span>Submitted Withdraw</span>
                   </NavLink>
-                </li>
+                </li> */}
                 <li>
                   <NavLink
                     to="/success-withdraw"
@@ -301,6 +301,17 @@ const MasterLayout = ({ children }) => {
               >
                 <Icon icon="hugeicons:invoice-03" className="menu-icon" />
                 <span>Payment Gateway</span>
+              </NavLink>
+            </li>
+                        <li>
+              <NavLink
+                to="/games"
+                className={(navData) =>
+                  navData.isActive ? "active-page" : ""
+                }
+              >
+                <Icon icon="hugeicons:invoice-03" className="menu-icon" />
+                <span>Games</span>
               </NavLink>
             </li>
           </ul>

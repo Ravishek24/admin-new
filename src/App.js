@@ -109,6 +109,7 @@ import AdminImageManager from "./components/child/ActivityPageEdit";
 import PrivateRoute from "./components/PrivateRoute";
 import PublicOnlyRoute from "./components/PublicRoute";
 import WeeklyProfit from "./pages/WeeklyProfit";
+import Games from "./pages/Games";
 
 function App() {
   return (
@@ -190,6 +191,7 @@ function App() {
         <Route path="/notification" element={<PrivateRoute element={<NotificationPage />} />} />
         <Route path="/pagination" element={<PrivateRoute element={<PaginationPage />} />} />
         <Route path="/payment-gateway" element={<PrivateRoute element={<PaymentGatewayPage />} />} />
+        <Route path="/games" element={<PrivateRoute element={<Games />} />} />
         <Route path="/pie-chart" element={<PrivateRoute element={<PieChartPage />} />} />
         <Route path="/portfolio" element={<PrivateRoute element={<PortfolioPage />} />} />
         <Route path="/pricing" element={<PrivateRoute element={<PricingPage />} />} />

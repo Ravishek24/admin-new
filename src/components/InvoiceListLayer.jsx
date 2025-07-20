@@ -1,8 +1,12 @@
-import { Icon } from '@iconify/react/dist/iconify.js';
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { blockUserById, getUsers, unblockUserById } from '../utils/apiService';
-
+import { Icon } from "@iconify/react/dist/iconify.js";
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  adjustUserBalance,
+  blockUserById,
+  getUsers,
+  unblockUserById,
+} from "../utils/apiService";
 
 const AllUsersLayer = () => {
   const [users, setUsers] = useState([]);
@@ -10,12 +14,12 @@ const AllUsersLayer = () => {
   const [showUnblockModal, setShowUnblockModal] = useState(false);
   const [blockUserId, setBlockUserId] = useState(null);
   const [unblockUserId, setUnblockUserId] = useState(null);
-  const [blockReason, setBlockReason] = useState('');
+  const [blockReason, setBlockReason] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
   const [editUserId, setEditUserId] = useState(null);
-  const [editAction, setEditAction] = useState('add');
-  const [editAmount, setEditAmount] = useState('');
-  const [editReason, setEditReason] = useState('');
+  const [editAction, setEditAction] = useState("add");
+  const [editAmount, setEditAmount] = useState("");
+  const [editReason, setEditReason] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(""); // for debouncing
   const [page, setPage] = useState(1);
@@ -48,8 +52,6 @@ const AllUsersLayer = () => {
   };
 
   useEffect(() => {
-
-
     fetchUsers();
   }, [debouncedSearch, page]);
 
@@ -67,7 +69,7 @@ const AllUsersLayer = () => {
   const handleBlockClick = (userId) => {
     setBlockUserId(userId);
     setShowBlockModal(true);
-    setBlockReason('');
+    setBlockReason("");
   };
 
   const handleBlockSubmit = async () => {
@@ -76,8 +78,8 @@ const AllUsersLayer = () => {
       if (data?.success) {
         setShowBlockModal(false);
         setBlockUserId(null);
-        setBlockReason('');
-        fetchUsers()
+        setBlockReason("");
+        fetchUsers();
       }
     } catch (err) {
       // show error message
@@ -98,7 +100,7 @@ const AllUsersLayer = () => {
       if (data?.success) {
         setShowUnblockModal(false);
         setUnblockUserId(null);
-        fetchUsers()
+        fetchUsers();
       }
     } catch (err) {
       // show error message
@@ -109,44 +111,29 @@ const AllUsersLayer = () => {
   const handleEditClick = (userId) => {
     setEditUserId(userId);
     setShowEditModal(true);
-    setEditAction('add');
-    setEditAmount('');
-    setEditReason('');
+    setEditAction("add");
+    setEditAmount("");
+    setEditReason("");
   };
 
-  const handleEditSubmit = () => {
+  const handleEditSubmit = async () => {
     const amount = parseFloat(editAmount);
     if (!amount || amount <= 0) {
-      alert('Please enter a valid amount.');
+      alert("Please enter a valid amount.");
       return;
     }
-
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.userId === editUserId
-          ? {
-            ...user,
-            balance:
-              editAction === 'add'
-                ? user.balance + amount
-                : user.balance - amount,
-          }
-          : user
-      )
+    let data = await adjustUserBalance(
+      editUserId,
+      amount,
+      editAction,
+      editReason
     );
 
-    // Log the adjustment (replace with API call)
-    console.log({
-      userId: editUserId,
-      action: editAction,
-      amount,
-      reason: editReason,
-    });
-
+    fetchUsers();
     setShowEditModal(false);
     setEditUserId(null);
-    setEditAmount('');
-    setEditReason('');
+    setEditAmount("");
+    setEditReason("");
     // TODO: Call API to update balance (e.g., POST /api/users/:userId/balance { action, amount, reason })
   };
 
@@ -187,8 +174,11 @@ const AllUsersLayer = () => {
       {/* Card Body */}
       <div className="card-body">
         {/* Scrollable Table Wrapper */}
-        <div className="table-responsive" style={{ overflowX: 'auto' }}>
-          <table className="table bordered-table mb-0" style={{ minWidth: '1200px' }}>
+        <div className="table-responsive" style={{ overflowX: "auto" }}>
+          <table
+            className="table bordered-table mb-0"
+            style={{ minWidth: "1200px" }}
+          >
             <thead>
               <tr>
                 <th scope="col">
@@ -222,7 +212,6 @@ const AllUsersLayer = () => {
                   <span>Loading users...</span>
                 </div>
               ) : (
-
                 users.map((user, index) => (
                   <tr key={user.userId}>
                     <td>
@@ -232,9 +221,11 @@ const AllUsersLayer = () => {
                           type="checkbox"
                           id={`check${index}`}
                         />
-                        <label className="form-check-label" htmlFor={`check${index}`}>
-                          {String(user?.sl).padStart(2, '0')}
-
+                        <label
+                          className="form-check-label"
+                          htmlFor={`check${index}`}
+                        >
+                          {String(user?.sl).padStart(2, "0")}
                         </label>
                       </div>
                     </td>
@@ -257,16 +248,24 @@ const AllUsersLayer = () => {
                     </td>
                     <td>
                       <span
-                        className={`d-inline-block w-12-px h-12-px rounded-circle ${user?.status == "Verified"
-                          ? 'bg-success-main' : 'bg-danger-main'
-                          }`}
+                        className={`d-inline-block w-12-px h-12-px rounded-circle ${
+                          user?.status == "Verified"
+                            ? "bg-success-main"
+                            : "bg-danger-main"
+                        }`}
                       ></span>
                     </td>
-                    <td>{user?.login_ip || '-'}</td>
-                    <td>{user?.register_ip || '-'}</td>
-                    <td>{String(user?.total_deposit).toLocaleString() || '-'}</td>
-                    <td>{String(user?.total_withdrawal).toLocaleString() || '-'}</td>
-                    <td>{String(user?.total_commission || 0)?.toLocaleString()}</td>
+                    <td>{user?.login_ip || "-"}</td>
+                    <td>{user?.register_ip || "-"}</td>
+                    <td>
+                      {String(user?.total_deposit).toLocaleString() || "-"}
+                    </td>
+                    <td>
+                      {String(user?.total_withdrawal).toLocaleString() || "-"}
+                    </td>
+                    <td>
+                      {String(user?.total_commission || 0)?.toLocaleString()}
+                    </td>
                     <td>
                       {user?.is_blocked ? (
                         <button
@@ -294,8 +293,7 @@ const AllUsersLayer = () => {
                     </td>
                   </tr>
                 ))
-              )
-              }
+              )}
             </tbody>
           </table>
         </div>
@@ -303,7 +301,8 @@ const AllUsersLayer = () => {
         {/* Pagination */}
         <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
           <span>
-            Showing page {pagination.current_page} of {pagination.total_pages} | Total: {pagination.total_users}
+            Showing page {pagination.current_page} of {pagination.total_pages} |
+            Total: {pagination.total_users}
           </span>
           <ul className="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
             <li className="page-item">
@@ -318,8 +317,11 @@ const AllUsersLayer = () => {
             {[...Array(pagination.total_pages)].map((_, idx) => (
               <li key={idx} className="page-item">
                 <button
-                  className={`page-link ${pagination.current_page === idx + 1 ? "bg-primary-600 text-white" : "bg-base text-secondary-light"
-                    }`}
+                  className={`page-link ${
+                    pagination.current_page === idx + 1
+                      ? "bg-primary-600 text-white"
+                      : "bg-base text-secondary-light"
+                  }`}
                   onClick={() => goToPage(idx + 1)}
                 >
                   {idx + 1}
@@ -337,14 +339,13 @@ const AllUsersLayer = () => {
             </li>
           </ul>
         </div>
-
       </div>
 
       {/* Block Reason Modal */}
       {showBlockModal && (
         <div
           className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
           tabIndex="-1"
         >
           <div className="modal-dialog modal-dialog-centered">
@@ -380,7 +381,6 @@ const AllUsersLayer = () => {
                     setShowBlockModal(false);
                     setBlockUserId(null);
                   }}
-
                 >
                   Cancel
                 </button>
@@ -402,7 +402,7 @@ const AllUsersLayer = () => {
       {showUnblockModal && (
         <div
           className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
           tabIndex="-1"
         >
           <div className="modal-dialog modal-dialog-centered">
@@ -443,7 +443,7 @@ const AllUsersLayer = () => {
       {showEditModal && (
         <div
           className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
           tabIndex="-1"
         >
           <div className="modal-dialog modal-dialog-centered">
@@ -467,8 +467,8 @@ const AllUsersLayer = () => {
                         name="editAction"
                         id="add"
                         value="add"
-                        checked={editAction === 'add'}
-                        onChange={() => setEditAction('add')}
+                        checked={editAction === "add"}
+                        onChange={() => setEditAction("add")}
                       />
                       <label className="form-check-label" htmlFor="add">
                         Add
@@ -481,8 +481,8 @@ const AllUsersLayer = () => {
                         name="editAction"
                         id="deduct"
                         value="deduct"
-                        checked={editAction === 'deduct'}
-                        onChange={() => setEditAction('deduct')}
+                        checked={editAction === "deduct"}
+                        onChange={() => setEditAction("deduct")}
                       />
                       <label className="form-check-label" htmlFor="deduct">
                         Deduct

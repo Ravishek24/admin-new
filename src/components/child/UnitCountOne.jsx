@@ -20,12 +20,11 @@ const TopTransactions = () => {
       try {
         let withRes = await getTopWithdrawalsToday()
         let depositRes = await getTopDepositsToday()
-        console.log(depositRes);
         
 
         // Normalize data structure
         setTopWithdrawals(
-          withRes?.data?.map((item) => ({
+          withRes?.withdrawals?.map((item) => ({
             userId: item.user_id,
             mobile: item.mobile_number,
             amount: item.applied_amount,
@@ -33,7 +32,7 @@ const TopTransactions = () => {
         );
 
         setTopDeposits(
-          depositRes?.deposits?.map((item) => ({
+          depositRes?.map((item) => ({
             userId: item.user_id,
             mobile: item.mobile_number,
             amount: item.applied_amount,
