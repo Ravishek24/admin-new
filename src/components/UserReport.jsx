@@ -2,15 +2,46 @@ import React, { useState } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { getRebateEarnings, getTeamLevelStats, getTeamSummary } from "../utils/apiService";
 
 // Mock data for team summary (replace with API data)
 const teamSummary = [
-  { level: 1, totalRecharge: "₹50000", totalWithdraw: "₹30000", totalBalance: "₹20000" },
-  { level: 2, totalRecharge: "₹40000", totalWithdraw: "₹25000", totalBalance: "₹15000" },
-  { level: 3, totalRecharge: "₹30000", totalWithdraw: "₹20000", totalBalance: "₹10000" },
-  { level: 4, totalRecharge: "₹20000", totalWithdraw: "₹15000", totalBalance: "₹5000" },
-  { level: 5, totalRecharge: "₹10000", totalWithdraw: "₹8000", totalBalance: "₹2000" },
-  { level: 6, totalRecharge: "₹5000", totalWithdraw: "₹4000", totalBalance: "₹1000" },
+  {
+    level: 1,
+    totalRecharge: "₹50000",
+    totalWithdraw: "₹30000",
+    totalBalance: "₹20000",
+  },
+  {
+    level: 2,
+    totalRecharge: "₹40000",
+    totalWithdraw: "₹25000",
+    totalBalance: "₹15000",
+  },
+  {
+    level: 3,
+    totalRecharge: "₹30000",
+    totalWithdraw: "₹20000",
+    totalBalance: "₹10000",
+  },
+  {
+    level: 4,
+    totalRecharge: "₹20000",
+    totalWithdraw: "₹15000",
+    totalBalance: "₹5000",
+  },
+  {
+    level: 5,
+    totalRecharge: "₹10000",
+    totalWithdraw: "₹8000",
+    totalBalance: "₹2000",
+  },
+  {
+    level: 6,
+    totalRecharge: "₹5000",
+    totalWithdraw: "₹4000",
+    totalBalance: "₹1000",
+  },
 ];
 
 // Mock data for level-wise users (Total Report)
@@ -281,7 +312,19 @@ const userProfiles = {
 };
 
 const UserReport = () => {
-  const [summary] = useState(teamSummary);
+  // State for user search and data
+  const [userIdInput, setUserIdInput] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTabLoading, setIsTabLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
+  
+  // State for API data
+  const [teamSummary, setTeamSummary] = useState([]);
+  const [levelUsersData, setLevelUsersData] = useState({});
+  const [rebateEarnings, setRebateEarnings] = useState([]);
+  
+  // Component state
   const [activeTab, setActiveTab] = useState("total");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -290,9 +333,103 @@ const UserReport = () => {
   const navigate = useNavigate();
 
 
+
+  // Handle user ID submission
+  const handleUserIdSubmit = async () => {
+    if (!userIdInput.trim()) {
+      setApiError("Please enter a valid User ID");
+      return;
+    }
+
+    setIsLoading(true);
+    setApiError("");
+    
+    try {
+      // Make initial API calls
+      const [teamSummaryData, rebateEarningsData] = await Promise.all([
+        getTeamSummary(userIdInput.trim()),
+        getRebateEarnings(userIdInput.trim())
+      ]);
+      
+      // Update state with API data
+      setTeamSummary(teamSummaryData || []);
+      setRebateEarnings(rebateEarningsData || []);
+      setSelectedUserId(userIdInput.trim());
+      
+      // Load initial tab data (total)
+      await loadTabData("total", userIdInput.trim());
+      
+    } catch (error) {
+      setApiError("Failed to fetch user data. Please check the User ID and try again.");
+      console.error('API Error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load data based on active tab
+  const loadTabData = async (tabType, userId = selectedUserId) => {
+    if (!userId) return;
+
+    // Only load team level stats for subordinate report tabs
+    if (["today", "yesterday", "total"].includes(tabType)) {
+      setIsTabLoading(true);
+      try {
+        
+        const teamLevelData = await getTeamLevelStats(userId,activeTab == 'total'?'all':activeTab);
+        
+        setLevelUsersData(prev => ({
+          ...prev,
+          [tabType]: teamLevelData || {}
+        }));
+      } catch (error) {
+        console.error(`Failed to fetch ${tabType} data:`, error);
+      } finally {
+        setIsTabLoading(false);
+      }
+    }
+  };
+
+  // Handle tab change
+  const handleTabChange = async (newTab) => {
+    setActiveTab(newTab);
+    await loadTabData(newTab);
+  };
+
+  // Reset to initial state
+  const handleReset = () => {
+    setSelectedUserId("");
+    setUserIdInput("");
+    setTeamSummary([]);
+    setLevelUsersData({});
+    setRebateEarnings([]);
+    setApiError("");
+    setActiveTab("total");
+    setSearchQuery("");
+    setSearchInput("");
+  };
+
+  // Handle Enter key press in input
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleUserIdSubmit();
+    }
+  };
+
   // Open user profile modal
   const openProfileModal = (userId) => {
-    setSelectedUser(userProfiles[userId]);
+    // You'll need to implement user profile API call here
+    // For now, using mock data structure
+    const mockProfile = {
+      userId: userId,
+      mobileNumber: "+91 XXXXXXXXXX",
+      totalRecharge: "₹0",
+      totalWithdraw: "₹0",
+      balance: "₹0",
+      level: 1,
+      joinDate: new Date().toISOString().split('T')[0],
+    };
+    setSelectedUser(mockProfile);
     setIsProfileModalOpen(true);
   };
 
@@ -312,36 +449,35 @@ const UserReport = () => {
     setSearchQuery(searchInput);
   };
 
-  // Select data based on active tab
+  // Get users by level based on active tab
   const getUsersByLevel = () => {
-    switch (activeTab) {
-      case "today":
-        return levelUsersToday;
-      case "yesterday":
-        return levelUsersYesterday;
-      case "total":
-        return levelUsersTotal;
-      default:
-        return {};
+    if (!levelUsersData || Object.keys(levelUsersData).length === 0) {
+      return {};
     }
+    
+    // Return data based on active tab
+    return levelUsersData[activeTab] || {};
   };
 
   // Filter users based on search query
   const filteredUsersByLevel = Object.keys(getUsersByLevel()).reduce((acc, level) => {
-    const filteredUsers = getUsersByLevel()[level].users.filter((user) => {
-      const userProfile = userProfiles[user.userId];
+    const levelData = getUsersByLevel()[level];
+    if (!levelData || !levelData.users) return acc;
+    
+    const filteredUsers = levelData.users.filter((user) => {
       return (
         user.userId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        userProfile.mobileNumber.toLowerCase().includes(searchQuery.toLowerCase())
+        (user.mobileNumber && user.mobileNumber.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     });
+    
     if (filteredUsers.length > 0 || activeTab === "total") {
-      acc[level] = { ...getUsersByLevel()[level], users: filteredUsers };
+      acc[level] = { ...levelData, users: filteredUsers };
     }
     return acc;
   }, {});
 
-  // Render subordinate report (Today/Total/Yesterday)
+  // Render subordinate report
   const renderSubordinateReport = () => {
     return (
       <div>
@@ -356,6 +492,7 @@ const UserReport = () => {
                   Level {level}
                 </Link>
               </h4>
+              
               {/* Direct Subordinate */}
               <h5 className="text-sm font-medium mb-2">Direct Subordinate</h5>
               <div className="table-responsive scroll-sm">
@@ -370,14 +507,15 @@ const UserReport = () => {
                   </thead>
                   <tbody>
                     <tr>
-                      <td>{filteredUsersByLevel[level].directSummary.numberOfRegister}</td>
-                      <td>{filteredUsersByLevel[level].directSummary.depositNumber}</td>
-                      <td>{filteredUsersByLevel[level].directSummary.depositAmount}</td>
-                      <td>{filteredUsersByLevel[level].directSummary.firstDepositCount}</td>
+                      <td>{filteredUsersByLevel[level].directSummary?.numberOfRegister || 0}</td>
+                      <td>{filteredUsersByLevel[level].directSummary?.depositNumber || 0}</td>
+                      <td>{filteredUsersByLevel[level].directSummary?.depositAmount || '₹0'}</td>
+                      <td>{filteredUsersByLevel[level].directSummary?.firstDepositCount || 0}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
+              
               {/* Team Subordinate */}
               <h5 className="text-sm font-medium mb-2 mt-4">Team Subordinate</h5>
               <div className="table-responsive scroll-sm">
@@ -392,14 +530,15 @@ const UserReport = () => {
                   </thead>
                   <tbody>
                     <tr>
-                      <td>{filteredUsersByLevel[level].teamSummary.numberOfRegister}</td>
-                      <td>{filteredUsersByLevel[level].teamSummary.depositNumber}</td>
-                      <td>{filteredUsersByLevel[level].teamSummary.depositAmount}</td>
-                      <td>{filteredUsersByLevel[level].teamSummary.firstDepositCount}</td>
+                      <td>{filteredUsersByLevel[level].teamSummary?.numberOfRegister || 0}</td>
+                      <td>{filteredUsersByLevel[level].teamSummary?.depositNumber || 0}</td>
+                      <td>{filteredUsersByLevel[level].teamSummary?.depositAmount || '₹0'}</td>
+                      <td>{filteredUsersByLevel[level].teamSummary?.firstDepositCount || 0}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
+              
               {/* User List */}
               <h5 className="text-sm font-medium mb-2 mt-4">Users</h5>
               <div className="table-responsive scroll-sm">
@@ -412,21 +551,29 @@ const UserReport = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsersByLevel[level].users.map((user) => (
-                      <tr key={user.userId}>
-                        <td>
-                          <button
-                            type="button"
-                            className="text-blue-600 hover:underline focus:outline-none"
-                            onClick={() => openProfileModal(user.userId)}
-                          >
-                            {user.userId}
-                          </button>
+                    {filteredUsersByLevel[level].users && filteredUsersByLevel[level].users.length > 0 ? (
+                      filteredUsersByLevel[level].users.map((user) => (
+                        <tr key={user.userId}>
+                          <td>
+                            <button
+                              type="button"
+                              className="text-blue-600 hover:underline focus:outline-none"
+                              onClick={() => openProfileModal(user.userId)}
+                            >
+                              {user.userId}
+                            </button>
+                          </td>
+                          <td>{user.recharge || '₹0'}</td>
+                          <td>{user.withdraw || '₹0'}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="3" className="text-center py-4">
+                          No users found
                         </td>
-                        <td>{user.recharge}</td>
-                        <td>{user.withdraw}</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -441,8 +588,26 @@ const UserReport = () => {
     );
   };
 
-  // Render salary report (Today/Yesterday)
-  const renderSalaryReport = (reportData) => {
+  // Render salary report
+  const renderSalaryReport = (reportType) => {
+    let salaryData = [];
+    
+    if (reportType === "todaySalary") {
+      // Use today's rebate earnings data
+      salaryData = rebateEarnings.filter(item => {
+        const today = new Date().toISOString().split('T')[0];
+        return item.date === today;
+      });
+    } else if (reportType === "yesterdaySalary") {
+      // Use yesterday's rebate earnings data
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      salaryData = rebateEarnings.filter(item => {
+        return item.date === yesterdayStr;
+      });
+    }
+    
     return (
       <div className="table-responsive scroll-sm">
         <table className="table bordered-table text-sm w-full">
@@ -454,40 +619,128 @@ const UserReport = () => {
             </tr>
           </thead>
           <tbody>
-            {reportData.map((level) => (
-              <tr key={level.level}>
-                <td>
-                  <Link
-                    to={`/level-details/${level.level}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Level {level.level}
-                  </Link>
+            {salaryData.length > 0 ? (
+              salaryData.map((level) => (
+                <tr key={level.level}>
+                  <td>
+                    <Link
+                      to={`/level-details/${level.level}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Level {level.level}
+                    </Link>
+                  </td>
+                  <td>{level.activeMembers || 0}</td>
+                  <td>{level.totalDepositAmount || '₹0'}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="3" className="text-center py-4">
+                  No salary data available
                 </td>
-                <td>{level.activeMembers}</td>
-                <td>{level.totalDepositAmount}</td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
     );
   };
 
+  // If no user is selected, show only the search input
+  if (!selectedUserId) {
+    return (
+      <div className="card">
+        <div className="card-header">
+          <h2 className="text-xl font-semibold">User Report</h2>
+        </div>
+        <div className="card-body py-8">
+          <button
+            onClick={() => navigate(-1)}
+            className="btn btn-sm btn-outline-primary flex items-center gap-1 mb-6"
+          >
+            <Icon icon="ic:round-arrow-back" className="text-lg" />
+            Back
+          </button>
+
+          <div className="max-w-md mx-auto">
+            <h3 className="text-lg font-medium mb-4 text-center">
+              Enter User ID to View Report
+            </h3>
+            
+            {/* Error Message */}
+            {apiError && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-md">
+                {apiError}
+              </div>
+            )}
+
+            {/* User ID Input */}
+            <div className="mb-4">
+              <div className="input-group">
+                <span className="input-group-text">
+                  <Icon icon="mdi:account" />
+                </span>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Enter User ID"
+                  value={userIdInput}
+                  onChange={(e) => setUserIdInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleUserIdSubmit}
+                  disabled={isLoading || !userIdInput.trim()}
+                >
+                  {isLoading ? (
+                    <>
+                      <Icon icon="mdi:loading" className="animate-spin mr-2" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="mdi:magnify" className="mr-2" />
+                      Search
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main report view (when user is selected)
   return (
     <div className="card">
       <div className="card-header">
-        <h2 className="text-xl font-semibold">User Report</h2>
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">User Report - {selectedUserId}</h2>
+          <button
+            onClick={handleReset}
+            className="btn btn-sm btn-outline-secondary"
+          >
+            <Icon icon="mdi:refresh" className="mr-1" />
+            Change User
+          </button>
+        </div>
       </div>
       <div className="card-body py-8">
         <button
-            onClick={() => navigate(-1)}
-            className="btn btn-sm btn-outline-primary flex items-center gap-1 mb-4"
-          >
-            <Icon icon="ic:round-arrow-back" className="text-lg mb-4" />
-            Back
-          </button>
-        {/* Search Bar with Button */}
+          onClick={() => navigate(-1)}
+          className="btn btn-sm btn-outline-primary flex items-center gap-1 mb-4"
+        >
+          <Icon icon="ic:round-arrow-back" className="text-lg" />
+          Back
+        </button>
+
+        {/* Search Bar for filtering results */}
         <div className="mb-6">
           <div className="input-group">
             <span className="input-group-text">
@@ -496,7 +749,7 @@ const UserReport = () => {
             <input
               type="text"
               className="form-control"
-              placeholder="Search by User ID or Mobile Number"
+              placeholder="Filter by User ID or Mobile Number"
               value={searchInput}
               onChange={handleSearchInput}
             />
@@ -505,7 +758,7 @@ const UserReport = () => {
               className="btn btn-primary"
               onClick={handleSearch}
             >
-              Search
+              Filter
             </button>
           </div>
         </div>
@@ -524,8 +777,8 @@ const UserReport = () => {
                 </tr>
               </thead>
               <tbody>
-                {summary.length > 0 ? (
-                  summary.map((level) => (
+                {teamSummary.length > 0 ? (
+                  teamSummary.map((level) => (
                     <tr key={level.level}>
                       <td>
                         <Link
@@ -535,9 +788,9 @@ const UserReport = () => {
                           Level {level.level}
                         </Link>
                       </td>
-                      <td>{level.totalRecharge}</td>
-                      <td>{level.totalWithdraw}</td>
-                      <td>{level.totalBalance}</td>
+                      <td>{level.totalRecharge || '₹0'}</td>
+                      <td>{level.totalWithdraw || '₹0'}</td>
+                      <td>{level.totalBalance || '₹0'}</td>
                     </tr>
                   ))
                 ) : (
@@ -550,14 +803,6 @@ const UserReport = () => {
               </tbody>
             </table>
           </div>
-          <div className="mt-4">
-            <Link
-              to="/level-details/all"
-              className="text-blue-600 hover:underline text-sm"
-            >
-              View All Levels
-            </Link>
-          </div>
         </div>
 
         {/* Level-Wise User Report */}
@@ -569,31 +814,55 @@ const UserReport = () => {
               <li className="nav-item">
                 <button
                   className={`nav-link ${activeTab === "today" ? "active" : ""}`}
-                  onClick={() => setActiveTab("today")}
+                  onClick={() => handleTabChange("today")}
+                  disabled={isTabLoading}
                 >
-                  Today Report
+                  {isTabLoading && activeTab === "today" ? (
+                    <>
+                      <Icon icon="mdi:loading" className="animate-spin mr-1" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Today Report"
+                  )}
                 </button>
               </li>
               <li className="nav-item">
                 <button
                   className={`nav-link ${activeTab === "total" ? "active" : ""}`}
-                  onClick={() => setActiveTab("total")}
+                  onClick={() => handleTabChange("total")}
+                  disabled={isTabLoading}
                 >
-                  Total Report
+                  {isTabLoading && activeTab === "total" ? (
+                    <>
+                      <Icon icon="mdi:loading" className="animate-spin mr-1" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Total Report"
+                  )}
                 </button>
               </li>
               <li className="nav-item">
                 <button
                   className={`nav-link ${activeTab === "yesterday" ? "active" : ""}`}
-                  onClick={() => setActiveTab("yesterday")}
+                  onClick={() => handleTabChange("yesterday")}
+                  disabled={isTabLoading}
                 >
-                  Yesterday Report
+                  {isTabLoading && activeTab === "yesterday" ? (
+                    <>
+                      <Icon icon="mdi:loading" className="animate-spin mr-1" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Yesterday Report"
+                  )}
                 </button>
               </li>
               <li className="nav-item">
                 <button
                   className={`nav-link ${activeTab === "todaySalary" ? "active" : ""}`}
-                  onClick={() => setActiveTab("todaySalary")}
+                  onClick={() => handleTabChange("todaySalary")}
                 >
                   Today Salary Report
                 </button>
@@ -601,7 +870,7 @@ const UserReport = () => {
               <li className="nav-item">
                 <button
                   className={`nav-link ${activeTab === "yesterdaySalary" ? "active" : ""}`}
-                  onClick={() => setActiveTab("yesterdaySalary")}
+                  onClick={() => handleTabChange("yesterdaySalary")}
                 >
                   Yesterday Salary Report
                 </button>
@@ -610,11 +879,20 @@ const UserReport = () => {
           </div>
 
           {/* Tab Content */}
-          {activeTab === "today" && renderSubordinateReport()}
-          {activeTab === "total" && renderSubordinateReport()}
-          {activeTab === "yesterday" && renderSubordinateReport()}
-          {activeTab === "todaySalary" && renderSalaryReport(salaryReportToday)}
-          {activeTab === "yesterdaySalary" && renderSalaryReport(salaryReportYesterday)}
+          {isTabLoading ? (
+            <div className="text-center py-8">
+              <Icon icon="mdi:loading" className="animate-spin text-2xl mb-2" />
+              <p>Loading data...</p>
+            </div>
+          ) : (
+            <>
+              {activeTab === "today" && renderSubordinateReport()}
+              {activeTab === "total" && renderSubordinateReport()}
+              {activeTab === "yesterday" && renderSubordinateReport()}
+              {activeTab === "todaySalary" && renderSalaryReport("todaySalary")}
+              {activeTab === "yesterdaySalary" && renderSalaryReport("yesterdaySalary")}
+            </>
+          )}
         </div>
 
         {/* User Profile Modal */}
@@ -717,3 +995,4 @@ const UserReport = () => {
 };
 
 export default UserReport;
+

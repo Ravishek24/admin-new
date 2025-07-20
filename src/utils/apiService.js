@@ -442,16 +442,10 @@ export const fetchStats = async () => {
   }
 };
 
-export const getTeamLevelStats = async (userId, startDate, endDate) => {
+export const getTeamLevelStats = async (userId, period) => {
   try {
     const response = await axiosInstance.get(
-      `/users/admin/users/${userId}/team-level-stats`,
-      {
-        params: {
-          start_date: startDate,
-          end_date: endDate,
-        },
-      }
+      `/users/admin/users/${userId}/team-level-stats?period=${period}`
     );
     return response.data?.data;
   } catch (error) {
@@ -568,12 +562,16 @@ export const getSuccessWithdrawals = async ({
 // gameStatsService.js
 export const getSpribeStats = async (period = "today") => {
   try {
-    return await axiosInstance.get(`/admin/stats/games/spribe?period=${period}`);
+    return await axiosInstance.get(
+      `/admin/stats/games/spribe?period=${period}`
+    );
   } catch (error) {}
 };
 
 export const getSeamlessStats = async (period = "week") => {
   try {
-    return await axiosInstance.get(`/admin/stats/games/seamless?period=${period}`);
+    return await axiosInstance.get(
+      `/admin/stats/games/seamless?period=${period}`
+    );
   } catch (error) {}
 };
