@@ -19,6 +19,7 @@ const AllUsersLayer = () => {
   const [editUserId, setEditUserId] = useState(null);
   const [editAction, setEditAction] = useState("add");
   const [editAmount, setEditAmount] = useState("");
+  const [editWageringAmount, setEditWageringAmount] = useState("");
   const [editReason, setEditReason] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(""); // for debouncing
@@ -114,28 +115,50 @@ const AllUsersLayer = () => {
     setEditAction("add");
     setEditAmount("");
     setEditReason("");
+    setEditWageringAmount("")
   };
 
   const handleEditSubmit = async () => {
     const amount = parseFloat(editAmount);
+    const wagering = parseFloat(editWageringAmount);
+    const reason = editReason.trim();
+    
+    // Validation
     if (!amount || amount <= 0) {
       alert("Please enter a valid amount.");
       return;
     }
-    let data = await adjustUserBalance(
-      editUserId,
-      amount,
-      editAction,
-      editReason
-    );
+    
+    if (wagering < 0) {
+      alert("Wagering amount cannot be negative.");
+      return;
+    }
+    
+    if (!reason) {
+      alert("Please enter a reason.");
+      return;
+    }
 
-    fetchUsers();
-    setShowEditModal(false);
-    setEditUserId(null);
-    setEditAmount("");
-    setEditReason("");
-    // TODO: Call API to update balance (e.g., POST /api/users/:userId/balance { action, amount, reason })
-  };
+    try {
+      let data = await adjustUserBalance(
+        editUserId,
+        amount,
+        editAction,
+        reason,       
+        wagering,    
+      );
+
+      fetchUsers();
+      setShowEditModal(false);
+      setEditUserId(null);
+      setEditAmount("");
+      setEditReason("");
+      setEditWageringAmount("");
+    } catch (error) {
+      console.error("Error adjusting balance:", error);
+      alert("Failed to update balance. Please try again.");
+    }
+};
 
   return (
     <div className="card">
@@ -202,7 +225,12 @@ const AllUsersLayer = () => {
                 <th scope="col">Total Deposit</th>
                 <th scope="col">Total Withdrawal</th>
                 <th scope="col">Commission Detail</th>
+                <th scope="col">Available Wagering</th>
+                <th scope="col">Referal Code</th>
+                <th scope="col">Refered By</th>
+                <th scope="col">Registration Time</th>
                 <th scope="col">Block/Unblock</th>
+                <th scope="col">Block Reason</th>
                 <th scope="col">More Info</th>
               </tr>
             </thead>
@@ -248,11 +276,10 @@ const AllUsersLayer = () => {
                     </td>
                     <td>
                       <span
-                        className={`d-inline-block w-12-px h-12-px rounded-circle ${
-                          user?.status == "Verified"
+                        className={`d-inline-block w-12-px h-12-px rounded-circle ${user?.status == "Verified"
                             ? "bg-success-main"
                             : "bg-danger-main"
-                        }`}
+                          }`}
                       ></span>
                     </td>
                     <td>{user?.login_ip || "-"}</td>
@@ -266,6 +293,21 @@ const AllUsersLayer = () => {
                     <td>
                       {String(user?.total_commission || 0)?.toLocaleString()}
                     </td>
+                    <td>
+                      {String(user?.wagering || 0)?.toLocaleString()}
+                    </td>
+                    <td>
+                      {String(user?.ref_code || 0)?.toLocaleString()}
+                    </td>
+                    <td>
+                      {String(user?.refby_code || 0)?.toLocaleString()}
+                    </td>
+                    <td>
+  {(user?.registered_at || "")
+    .replace("T", " ")
+    .replace(".000Z", "")}
+</td>
+
                     <td>
                       {user?.is_blocked ? (
                         <button
@@ -282,6 +324,9 @@ const AllUsersLayer = () => {
                           Block
                         </button>
                       )}
+                    </td>
+                    <td>
+                      {String(user?.block_reason || "Active")?.toLocaleString()}
                     </td>
                     <td>
                       <Link
@@ -317,11 +362,10 @@ const AllUsersLayer = () => {
             {[...Array(pagination.total_pages)].map((_, idx) => (
               <li key={idx} className="page-item">
                 <button
-                  className={`page-link ${
-                    pagination.current_page === idx + 1
+                  className={`page-link ${pagination.current_page === idx + 1
                       ? "bg-primary-600 text-white"
                       : "bg-base text-secondary-light"
-                  }`}
+                    }`}
                   onClick={() => goToPage(idx + 1)}
                 >
                   {idx + 1}
@@ -503,6 +547,18 @@ const AllUsersLayer = () => {
                   />
                 </div>
                 <div className="mb-3">
+                  <label className="form-label"> Wagering Amount</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={editWageringAmount}
+                    onChange={(e) => setEditWageringAmount(e.target.value)}
+                    placeholder="Enter Wagering amount"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div className="mb-3">
                   <label className="form-label">Reason</label>
                   <textarea
                     className="form-control"
@@ -525,7 +581,10 @@ const AllUsersLayer = () => {
                   type="button"
                   className="btn btn-primary-600"
                   onClick={handleEditSubmit}
-                  disabled={!editAmount || !editReason.trim()}
+                  disabled={
+                    (!editAmount && !editWageringAmount) ||
+                    (editAmount && !editReason.trim())
+                  }
                 >
                   Submit
                 </button>

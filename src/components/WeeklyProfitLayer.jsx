@@ -1,32 +1,38 @@
 import React, { useEffect, useState } from 'react';
-import { getWeeklyProfit } from '../utils/apiService';
+import { getWeeklyProfit, getPreviousWeeklyProfit } from '../utils/apiService';
 
 const WeeklyProfitLayer = () => {
     const [data, setData] = useState(null);
+    const [previousData, setPreviousData] = useState(null);
 
     useEffect(() => {
-        fetchWeeklyProfit();
+        fetchCurrentAndPrevious();
     }, []);
 
-    const fetchWeeklyProfit = async () => {
+    const fetchCurrentAndPrevious = async () => {
         try {
-            const res = await getWeeklyProfit();
-            setData(res?.data);
+            const [current, previous] = await Promise.all([
+                getWeeklyProfit(),
+                getPreviousWeeklyProfit()
+            ]);
+
+            setData(current?.data);
+            setPreviousData(previous?.data);
         } catch (error) {
-            console.error('Error fetching user stats');
+            console.error('Error fetching profit data', error);
         }
     };
 
-    if (!data) {
+    if (!data || !previousData) {
         return <div>Loading...</div>;
     }
 
-    return (
+    const renderTable = (reportData, title) => (
         <div className="p-4 bg-gray-900 text-[#ccc] rounded-lg max-w-xl mx-auto mt-6 shadow-lg w-full">
-            <h2 className="text-xl font-semibold mb-2">Weekly Profit Report</h2>
+            <h2 className="text-xl font-semibold mb-2">{title}</h2>
             <p className="mb-4 text-sm text-gray-300">
-                Week: <span className="font-medium">{data.week_start}</span> to{' '}
-                <span className="font-medium">{data.week_end}</span>
+                Week: <span className="font-medium">{reportData.week_start}</span> to{' '}
+                <span className="font-medium">{reportData.week_end}</span>
             </p>
 
             <table className="w-[100%] text-sm text-left border border-gray-700" style={{width:'100%'}}>
@@ -39,7 +45,7 @@ const WeeklyProfitLayer = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    {data.game_wise_profit.map((game, index) => (
+                    {reportData.game_wise_profit.map((game, index) => (
                         <tr key={index} className="border-t border-gray-700">
                             <td className="p-2 border border-gray-700 capitalize">{game.game_type}</td>
                             <td className="p-2 border border-gray-700">{game.total_bet}</td>
@@ -51,9 +57,16 @@ const WeeklyProfitLayer = () => {
             </table>
 
             <div className="mt-4 text-right font-semibold text-green-400">
-                Total Weekly Profit: ₹{data.total_profit}
+                Total Weekly Profit: ₹{reportData.total_profit}
             </div>
         </div>
+    );
+
+    return (
+        <>
+            {renderTable(data, 'Weekly Profit Report')}
+            {renderTable(previousData, 'Previous Weekly Profit Report')}
+        </>
     );
 };
 

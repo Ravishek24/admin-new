@@ -350,9 +350,9 @@ const NewWithdraw = () => {
                       <td>{withdraw.order_id}</td>
                       <td>{withdraw.withdrawal_type}</td>
                       <td>{withdraw.amount}</td>
-                      <td>{withdraw.wallet_balance}</td>
-                      <td>-</td> {/* Placeholder for totalRechargeAmount */}
-                      <td>-</td> {/* Placeholder for totalWithdrawAmount */}
+                      <td>{withdraw.Balance_After}</td>
+                      <td>{withdraw.total_recharge}</td> {/* Placeholder for totalRechargeAmount */}
+                      <td>{withdraw.Balance_After}</td> {/* Placeholder for totalWithdrawAmount */}
                       <td>{withdraw.bank_name || "-"}</td>
                       <td>{withdraw.account_number || "-"}</td>
                       <td>{withdraw.ifsc_code || "-"}</td>

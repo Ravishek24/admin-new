@@ -62,6 +62,7 @@ const InvoicePreviewLayer = () => {
     total_records: 0,
   });
   const [selectedGiftCode, setSelectedGiftCode] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(null);
   const [claimHistory, setClaimHistory] = useState([]);
   const [claimPagination, setClaimPagination] = useState({
     current_page: 1,
@@ -81,8 +82,8 @@ const InvoicePreviewLayer = () => {
   const fetchClaimHistory = async (code, page = 1) => {
     try {
       const data = await getGiftCodeClaimedUser(code, page);
-       console.log(data);
-       
+      console.log(data);
+
       setClaimHistory(data?.data || []);
       // setClaimPagination(data.pagination || {});
     } catch (error) {
@@ -93,10 +94,10 @@ const InvoicePreviewLayer = () => {
     fetchGiftHistory(pagination.current_page);
   }, [pagination.current_page]);
   useEffect(() => {
-  if (activeTab === 'claimHistory' && selectedGiftCode) {
-    fetchClaimHistory(selectedGiftCode, claimPagination.current_page);
-  }
-}, [claimPagination.current_page]);
+    if (activeTab === 'claimHistory' && selectedGiftCode) {
+      fetchClaimHistory(selectedGiftCode, claimPagination.current_page);
+    }
+  }, [claimPagination.current_page]);
 
   // Handle gift code creation
   const handleCreateGift = async (e) => {
@@ -352,7 +353,10 @@ const InvoicePreviewLayer = () => {
                               <td>{claim.user_id}</td>
                               <td>{claim.phone_no}</td>
                               <td>{claim.claimed_ip ?? "-"}</td>
-                              <td>{claim.claimed_at.toLocaleString()}</td>
+                              <td>{(claim.claimed_at || "")
+                                .replace("T", " ")
+                                .replace(".000Z", "")}
+                              </td>
                               <td>₹{claimHistory?.total_amount}</td>
                             </tr>
                           ))
@@ -381,32 +385,14 @@ const InvoicePreviewLayer = () => {
                             onClick={() => handleGiftSort('code')}
                           >
                             Gift Code
-                            {giftSortConfig.key === 'code' && (
-                              <Icon
-                                icon={
-                                  giftSortConfig.direction === 'asc'
-                                    ? 'bxs:up-arrow'
-                                    : 'bxs:down-arrow'
-                                }
-                                className="text-xs ms-1"
-                              />
-                            )}
+                            {giftSortConfig.key === 'code'}
                           </th>
                           <th
                             className="cursor-pointer"
                             onClick={() => handleGiftSort('amount')}
                           >
                             Amount (INR)
-                            {giftSortConfig.key === 'amount' && (
-                              <Icon
-                                icon={
-                                  giftSortConfig.direction === 'asc'
-                                    ? 'bxs:up-arrow'
-                                    : 'bxs:down-arrow'
-                                }
-                                className="text-xs ms-1"
-                              />
-                            )}
+                            {giftSortConfig.key === 'amount'}
                           </th>
                           <th
                             className="cursor-pointer"
@@ -432,46 +418,64 @@ const InvoicePreviewLayer = () => {
                             onClick={() => handleGiftSort('generatedTime')}
                           >
                             Generated Time
-                            {giftSortConfig.key === 'generatedTime' && (
-                              <Icon
-                                icon={
-                                  giftSortConfig.direction === 'asc'
-                                    ? 'bxs:up-arrow'
-                                    : 'bxs:down-arrow'
-                                }
-                                className="text-xs ms-1"
-                              />
-                            )}
+                            {giftSortConfig.key === 'generatedTime'}
                           </th>
                         </tr>
                       </thead>
                       <tbody>
                         {giftCodeHistory.length > 0 ? (
                           giftCodeHistory.map((gift, index) => (
-                            <tr key={index}
-                              onClick={() => {
-                                setSelectedGiftCode(gift.code);
-                                setActiveTab('claimHistory');
-                                setClaimPagination((prev) => ({ ...prev, current_page: 1 }));
-                                fetchClaimHistory(gift.code, 1);
-                                
-                              }}
-                              style={{cursor:'pointer'}}
-                            >
-                              <td>{gift.code}</td>
+                            <tr key={index} style={{ cursor: 'default' }}>
+                              <td className="flex items-center gap-2 relative">
+                                <span
+                                  className="text-blue-600 underline cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedGiftCode(gift.code);
+                                    setActiveTab('claimHistory');
+                                    setClaimPagination((prev) => ({
+                                      ...prev,
+                                      current_page: 1,
+                                    }));
+                                    fetchClaimHistory(gift.code, 1);
+                                  }}
+                                >
+                                  {gift.code}
+                                </span>
+
+                                <Icon
+                                  icon="mdi:content-copy"
+                                  className="cursor-pointer text-gray-500 mb-4 hover:text-black text-xl"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(gift.code);
+                                    setCopiedCode(gift.code); // mark as copied
+                                    setTimeout(() => setCopiedCode(null), 1500); // hide after 1.5s
+                                  }}
+                                />
+
+                                {copiedCode === gift.code && (
+                                  <span className="absolute top-full text-lg text-green-500">
+                                    Copied!
+                                  </span>
+                                )}
+                              </td>
                               <td>₹{String(gift.amount_per_user).toLocaleString()}</td>
                               <td>{gift.max_claims}</td>
                               <td>{gift.claimed_count}</td>
-                              <td>{gift.created_at}</td>
+                              <td>
+  {(gift?.created_at || "")
+    .replace("T", " ")
+    .replace(".000Z", "")}
+</td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="4" className="text-center">
+                            <td colSpan="5" className="text-center">
                               No gift codes generated
                             </td>
                           </tr>
                         )}
+
                         <Pagination
                           pagination={{
                             page: pagination.current_page,

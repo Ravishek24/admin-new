@@ -1,22 +1,18 @@
-
 import { Icon } from '@iconify/react/dist/iconify.js';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSocket } from '../hook/useSocket';
-import { clippingParents } from '@popperjs/core';
 import { setResult } from '../utils/apiService';
-
 
 const SOCKET_SERVER_URL = 'https://api.strikecolor1.com/admin';
 
-
 const PredictionManagement = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const [timeLeft, setTimeLeft] = useState(0);
   const [activeRoomKey, setActiveRoomKey] = useState('wingo-30s');
   const [rooms, setRooms] = useState({});
   const [isLoading, setIsLoading] = useState(true);
-  const [activePeriod, setActivePeriod] = useState('30s');
+  const [userBets, setUserBets] = useState([]);
   const [selectedBet, setSelectedBet] = useState(null);
   const [showResultModal, setShowResultModal] = useState(false);
   const [selectedResult, setSelectedResult] = useState('');
@@ -27,10 +23,8 @@ const PredictionManagement = () => {
   useEffect(() => {
     if (!socket || !connected) return;
 
-    // Subscribe to all wingo rooms after connection
-    socket.emit('subscribeToAllWingoRoooms');
+    socket.emit('subscribeToAllWingoRooms');
 
-    // Listen for room updates
     socket.on('allWingoRoomsUpdate', (data) => {
       console.log('📡 allWingoRoomsUpdate:', data);
       if (data.rooms) {
@@ -39,62 +33,153 @@ const PredictionManagement = () => {
       }
     });
 
-    // Handle any errors
     socket.on('error', (error) => {
       console.error('Socket error:', error);
     });
 
     return () => {
+      socket.emit('unsubscribeFromAllWingoRooms');
       socket.off('allWingoRoomsUpdate');
       socket.off('error');
     };
   }, [socket, connected]);
 
-  // Timer logic - recalculate every second
+  // Timer logic
   useEffect(() => {
     if (!rooms[activeRoomKey]) return;
 
     const calculateTimeLeft = () => {
       const roomData = rooms[activeRoomKey];
-      setTimeLeft(roomData?.periodInfo.timeRemaining);
-
-      // If timer reaches 0, it will reset with new data from websocket
-      if (roomData?.periodInfo.timeRemaining === 0) {
-        console.log('⏰ Timer finished for period:', roomData.periodId);
+      if (roomData?.periodInfo?.timeRemaining !== undefined) {
+        setTimeLeft(roomData.periodInfo.timeRemaining);
       }
     };
 
-    calculateTimeLeft(); // Calculate immediately
+    calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(interval);
   }, [rooms, activeRoomKey]);
 
+  // Update userBets when activeRoomKey changes
+  useEffect(() => {
+    if (rooms[activeRoomKey]?.bets) {
+      const bets = Object.entries(rooms[activeRoomKey].bets).flatMap(([number, betList]) =>
+        betList.map((bet) => ({
+          userId: bet.userId,
+          mobile: bet.mobile,
+          amount: bet.amount,
+          selection: number,
+          balanceAfterBet: bet.balanceAfterBet || 0,
+        }))
+      );
+      setUserBets(bets);
+    } else {
+      setUserBets([]);
+    }
+  }, [rooms, activeRoomKey]);
+
   const formatDurationLabel = (duration) => {
+    if (!duration) return '';
     if (duration < 60) return `${duration}s`;
     if (duration === 60) return '1m';
     return `${Math.floor(duration / 60)}m`;
   };
-  const getCurrentRoom = () => rooms[activeRoomKey];
 
+  const getCurrentRoom = () => rooms[activeRoomKey] || {};
 
   const handleSetResult = async () => {
-    try {
-      let payload = {
-        periodId: rooms[activeRoomKey].periodId,
-        number: selectedBet
-      }
-      let data = await setResult(payload)
-      console.log(data);
-    } catch (error) {
-      console.log(error);
-
+    if (selectedBet === null) {
+      alert('Please select a number first.');
+      return;
     }
+    try {
+      const payload = {
+        periodId: rooms[activeRoomKey].periodId,
+        number: selectedBet,
+      };
+      const data = await setResult(payload);
+      console.log('Result set:', data);
+      setShowResultModal(false);
+      setSelectedBet(null);
+    } catch (error) {
+      console.error('Error setting result:', error);
+      alert('Failed to set result. Please try again.');
+    }
+  };
 
+  const handleUnsetResult = async () => {
+    try {
+      // Placeholder: Implement actual unsetResult API call
+      console.log('Unsetting result for period:', rooms[activeRoomKey].periodId);
+      alert('Unset result functionality not implemented.');
+    } catch (error) {
+      console.error('Error unsetting result:', error);
+      alert('Failed to unset result. Please try again.');
+    }
+  };
 
-  }
+  const handleSubmitResult = () => {
+    setSelectedBet(Number(selectedResult));
+    handleSetResult();
+  };
+
   return (
     <div className="card">
+      <style>
+        {`
+          .gradient-red-violet {
+            background: linear-gradient(to right, #ff0000 50%, #800080 50%);
+            color: #fff;
+            transition: transform 0.2s;
+          }
+          .gradient-red-violet:hover {
+            transform: scale(1.05);
+          }
+          .gradient-green-violet {
+            background: linear-gradient(to right, #00ff00 50%, #800080 50%);
+            color: #fff;
+            transition: transform 0.2s;
+          }
+          .gradient-green-violet:hover {
+            transform: scale(1.05);
+          }
+          .big { background-color: #ffa500; color: #fff; }
+          .small { background-color: #00ff00; color: #fff; }
+          .green { background-color: #00ff00; color: #fff; }
+          .violet { background-color: #800080; color: #fff; }
+          .red { background-color: #ff0000; color: #fff; }
+          .btn-success {
+            background-color: #28a745;
+            transition: transform 0.2s;
+          }
+          .btn-success:hover {
+            transform: scale(1.05);
+            opacity: 0.9;
+          }
+          .btn-secondary {
+            background-color: #6c757d;
+            transition: transform 0.2s;
+          }
+          .btn-secondary:hover {
+            transform: scale(1.05);
+            opacity: 0.9;
+          }
+          .btn-danger {
+            background-color: #dc3545;
+            transition: transform 0.2s;
+          }
+          .btn-danger:hover {
+            transform: scale(1.05);
+            opacity: 0.9;
+          }
+          .bg-gray-200 { background-color: #e5e7eb; }
+          .badge.bg-dark {
+            background-color: #343a40;
+            color: #fff;
+          }
+        `}
+      </style>
       <div className="card-header bg-primary-100">
         <h5 className="mb-0 text-primary-600 fw-semibold">Wingo Prediction</h5>
       </div>
@@ -175,30 +260,30 @@ const PredictionManagement = () => {
         </div>
 
         {/* Set Result Box */}
-        <div className="p-4 bg-white rounded-lg shadow-sm border border-primary-200 mb-4 d-flex justify-around" style={{ gap: '1rem', display: 'flex' }}>
-          <div className="text-center d-flex justify-around" style={{ gap: '1rem', display: 'flex' }}>
+        <div className="p-4 bg-white rounded-lg shadow-sm border border-primary-200 mb-4 d-flex justify-content-around">
+          <div className="text-center d-flex gap-3">
             <button
-              className="btn btn-lg btn-success w-40 py-3 me-2"
+              className="btn btn-lg btn-success py-3"
               style={{ fontSize: '1.25rem', borderRadius: '8px', boxShadow: '0 4px 8px rgba(0,0,0,0.15)' }}
-              onClick={handleSetResult}
+              onClick={() => setShowResultModal(true)}
             >
               Set Result
             </button>
             <button
-              className="btn btn-lg btn-danger w-40 py-3"
+              className="btn btn-lg btn-danger py-3"
               style={{ fontSize: '1.25rem', borderRadius: '8px', boxShadow: '0 4px 8px rgba(0,0,0,0.15)' }}
-
+              onClick={handleUnsetResult}
             >
               Unset Result
             </button>
           </div>
         </div>
 
-        {/* Bet List (Visible when a bet is selected) */}
-        {/* {selectedBet && (
+        {/* Bet List */}
+        {selectedBet !== null && (
           <div className="p-4 bg-white rounded-lg shadow-sm border border-primary-200 mb-4">
             <h6 className="mb-3 text-primary-600 fw-semibold">
-              Users Betting on {selectedBet.type === 'number' ? `Number ${selectedBet.value}` : selectedBet.value}
+              Users Betting on Number {selectedBet}
             </h6>
             <div className="table-responsive" style={{ overflowX: 'auto' }}>
               <table className="table bordered-table mb-0" style={{ minWidth: '600px' }}>
@@ -211,19 +296,19 @@ const PredictionManagement = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentBets.users[selectedBet.value]?.length > 0 ? (
-                    currentBets.users[selectedBet.value].map((user, index) => (
+                  {rooms[activeRoomKey]?.bets?.[selectedBet]?.length > 0 ? (
+                    rooms[activeRoomKey].bets[selectedBet].map((user, index) => (
                       <tr key={index}>
                         <td>{user.userId}</td>
                         <td>{user.mobile}</td>
-                        <td>${user.amount.toLocaleString()}</td>
+                        <td>₹{user.amount.toLocaleString()}</td>
                         <td>{user.betTime}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
                       <td colSpan="4" className="text-center text-secondary-600">
-                        No users betting on this option
+                        No users betting on this number
                       </td>
                     </tr>
                   )}
@@ -231,13 +316,10 @@ const PredictionManagement = () => {
               </table>
             </div>
           </div>
-        )} */}
-
-        {/* High Risk Users */}
-
+        )}
 
         {/* Bet Distribution Table */}
-        {/* <div className="p-4 bg-white rounded-lg shadow-sm border border-primary-200">
+        <div className="p-4 bg-white rounded-lg shadow-sm border border-primary-200">
           <h6 className="mb-3 text-primary-600 fw-semibold">Bet Distribution</h6>
           <div className="table-responsive" style={{ overflowX: 'auto' }}>
             <table className="table bordered-table mb-0" style={{ minWidth: '800px' }}>
@@ -256,9 +338,9 @@ const PredictionManagement = () => {
                     <tr key={index}>
                       <td>{bet.userId}</td>
                       <td>{bet.mobile}</td>
-                      <td>${bet.amount.toLocaleString()}</td>
+                      <td>₹{bet.amount.toLocaleString()}</td>
                       <td>{bet.selection}</td>
-                      <td>${bet.balanceAfterBet.toLocaleString()}</td>
+                      <td>₹{bet.balanceAfterBet.toLocaleString()}</td>
                     </tr>
                   ))
                 ) : (
@@ -271,9 +353,10 @@ const PredictionManagement = () => {
               </tbody>
             </table>
           </div>
-        </div> */}
+        </div>
+
         {/* Result Modal */}
-        {/* {showResultModal && (
+        {showResultModal && (
           <div
             className="modal fade show d-block"
             style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
@@ -324,68 +407,10 @@ const PredictionManagement = () => {
               </div>
             </div>
           </div>
-        )}  */}
+        )}
       </div>
     </div>
   );
 };
-
-// Add custom CSS for gradients and styling
-const styles = `
-  .gradient-red-violet {
-    background: linear-gradient(to right, #ff0000 50%, #800080 50%);
-    color: #fff;
-    transition: transform 0.2s;
-  }
-  .gradient-red-violet:hover {
-    transform: scale(1.05);
-  }
-  .gradient-green-violet {
-    background: linear-gradient(to right, #00ff00 50%, #800080 50%);
-    color: #fff;
-    transition: transform 0.2s;
-  }
-  .gradient-green-violet:hover {
-    transform: scale(1.05);
-  }
-  .big { background-color: #ffa500; color: #fff; }
-  .small { background-color: #00ff00; color: #fff; }
-  .green { background-color: #00ff00; color: #fff; }
-  .violet { background-color: #800080; color: #fff; }
-  .red { background-color: #ff0000; color: #fff; }
-  .btn-success { 
-    background-color: #28a745; 
-    transition: transform 0.2s; 
-  }
-  .btn-success:hover { 
-    transform: scale(1.05); 
-    opacity: 0.9; 
-  }
-  .btn-secondary { 
-    background-color: #6c757d; 
-    transition: transform 0.2s; 
-  }
-  .btn-secondary:hover { 
-    transform: scale(1.05); 
-    opacity: 0.9; 
-  }
-  .btn-danger { 
-    background-color: #dc3545; 
-    transition: transform 0.2s; 
-  }
-  .btn-danger:hover { 
-    transform: scale(1.05); 
-    opacity: 0.9; 
-  }
-  .bg-gray-200 { background-color: #e5e7eb; }
-  .badge.bg-dark { 
-    background-color: #343a40; 
-    color: #fff; 
-  }
-`;
-
-const styleSheet = new CSSStyleSheet();
-styleSheet.replaceSync(styles);
-document.adoptedStyleSheets = [styleSheet];
 
 export default PredictionManagement;

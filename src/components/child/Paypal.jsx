@@ -304,7 +304,6 @@ const GatewayComponent = ({
                   type="button"
                   className="btn btn-primary border border-primary-600 text-md px-24 py-8 radius-8 w-100 text-center"
                   onClick={handleSave}
-                  disabled={!payInEnabled}
                 >
                   {isGatewayDisabled ? "Gateway Disabled" : "Save Changes"}
                 </button>

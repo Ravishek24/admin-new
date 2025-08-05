@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Link } from "react-router-dom";
-import { getPendingRecharge, getPendingRechargeFirst, getPendingWithDrawals, getTodayProfit, getTodayRegistration, getTodayWithDrawRecharge, getTopDepositsToday, getTopWithdrawalsToday, getTotalUsers, getUserStats, getWeeklyProfit } from "../../utils/apiService";
+import { getPendingRecharge, getPendingRechargeFirst, getPendingWithDrawals, getTodayProfit, getTodayRegistration, getTodayWithDrawRecharge, getTopDepositsToday, getTopWithdrawalsToday, getTotalUsers, getUserStats, getWeeklyProfit ,getBlockusers } from "../../utils/apiService";
 import ProfitModal from "../comman/ProfitModal";
 
 
@@ -134,7 +134,7 @@ const TransactionTable = ({ title, data, type }) => {
                   <tr key={index}>
                     <td>{item.userId}</td>
                     <td>{item.mobile}</td>
-                    <td>${item.amount.toLocaleString()}</td>
+                    <td>{item.amount.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -172,7 +172,9 @@ const TransactionTable = ({ title, data, type }) => {
 const DashboardStats = () => {
   const [todayRegistration, setTodayRegistration] = useState(null);
   const [userStats, setUserStats] = useState(null);
+  const [blockusers, setblockusers] = useState(null);
   const [todayProfit, setTodayProfit] = useState(null)
+  const [weeklyProfit, setWeeklyProfit] = useState(null)
   const [todayWithDrawRecharge, setTodayWithDrawRecharge] = useState(null)
   const [showModal, setShowModal] = useState(false);
   const [pendingWithDrawls, setPendingWithDrawals] = useState(null)
@@ -194,11 +196,27 @@ const DashboardStats = () => {
       console.error('Error fetching user stats');
     }
   };
-
+const fetchBlockUsers = async () => {
+    try {
+      const data = await getBlockusers();
+      setblockusers(data?.data);
+    } catch (error) {
+      console.error('Error fetching user stats');
+    }
+  };
   const fetchTodayProfit = async () => {
     try {
       const data = await getTodayProfit();
       setTodayProfit(data?.data);
+    } catch (error) {
+      console.error('Error fetching user stats');
+    }
+  };
+
+  const fetchWeeklyProfit = async () => {
+    try {
+      const data = await getWeeklyProfit();
+      setWeeklyProfit(data?.data);
     } catch (error) {
       console.error('Error fetching user stats');
     }
@@ -251,6 +269,8 @@ const DashboardStats = () => {
     fetchPendingWithDrawals()
     fetchPendingRecharege()
     fetchPendingRecharegeFirst()
+    fetchWeeklyProfit()
+    fetchBlockUsers()
   }, []);
 
   const handleBoxClick = (boxName) => {
@@ -265,10 +285,10 @@ const DashboardStats = () => {
   return (
     <>
       <ProfitModal
-        showModal={showModal}
-        handleClose={handleCloseModal}
-        gameWiseProfit={todayProfit?.game_wise_profit}
-      />
+  showModal={showModal}
+  handleClose={handleCloseModal}
+  gameWiseProfit={todayProfit?.game_wise_profit}
+/>
       <div className="row row-cols-xxxl-5 row-cols-lg-3 row-cols-sm-2 row-cols-1 gy-4">
         {/* Users Box */}
         <div className="col">
@@ -290,11 +310,8 @@ const DashboardStats = () => {
                     />
                   </div>
                 </div>
-                <p className="fw-medium text-sm text-primary-light mt-12 mb-0 d-flex align-items-center gap-2">
-                  <span className="d-inline-flex align-items-center gap-1 text-success-main">
-                    <Icon icon="bxs:up-arrow" className="text-xs" /> +5000
-                  </span>
-                  Today: {todayRegistration} | Blocked: 25
+                <p className="fw-medium text-sm text-primary-light mt-12 mb-0 d-flex align-items-center gap-2">              
+                  Today: {todayRegistration} | Blocked: {blockusers}
                 </p>
               </div>
             </div>
@@ -337,7 +354,7 @@ const DashboardStats = () => {
             <div className="card-body p-20">
               <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
                 <div>
-                  <p className="fw-medium text-primary-light mb-1">Profit</p>
+                  <p className="fw-medium text-primary-light mb-1"> Today Lottery Profit</p>
                   <h6 className="mb-0">{todayProfit?.total_profit}</h6>
                 </div>
                 <div className="w-50-px h-50-px bg-purple rounded-circle d-flex justify-content-center align-items-center">
@@ -347,10 +364,7 @@ const DashboardStats = () => {
                   />
                 </div>
               </div>
-              <p className="fw-medium text-sm text-primary-light mt-12 mb-0 d-flex align-items-center gap-2">
-                {todayProfit?.date}
-              </p>
-              <Link to={'/weekly-profit'}>Weekly Profit</Link>
+              <Link to={'/weekly-profit'}>Weekly Lottery Profit <h6 className="mb-0">{weeklyProfit?.total_profit}</h6></Link>
             </div>
           </div>
         </div>
@@ -370,7 +384,7 @@ const DashboardStats = () => {
                     <p className="fw-medium text-primary-light mb-1">
                       Live Active Users
                     </p>
-                    <h6 className="mb-0">2,500</h6>
+                    <h6 className="mb-0">{userStats?.active_users}</h6>
                   </div>
                   <div className="w-50-px h-50-px bg-info rounded-circle d-flex justify-content-center align-items-center">
                     <Icon
@@ -379,12 +393,6 @@ const DashboardStats = () => {
                     />
                   </div>
                 </div>
-                <p className="fw-medium text-sm text-primary-light mt-12 mb-0 d-flex align-items-center gap-2">
-                  <span className="d-inline-flex align-items-center gap-1 text-success-main">
-                    <Icon icon="bxs:up-arrow" className="text-xs" /> +200
-                  </span>
-                  Last hour: 1,200
-                </p>
               </div>
             </div>
           </Link>
@@ -655,7 +663,7 @@ const DashboardStats = () => {
       </div>
 
       {/* Top Transactions Tables */}
-      <TopTransactions />
+      <TopTransactions/>
 
     </>
   );

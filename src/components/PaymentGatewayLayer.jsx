@@ -19,7 +19,6 @@ const PaymentGatewayLayer = () => {
   const [selectedGateway, setSelectedGateway] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Fetch gateway stats
   const fetchGatewayStats = async () => {
     try {
       const response = await fetchStats();
@@ -41,9 +40,6 @@ const PaymentGatewayLayer = () => {
         setDepositGateways(deposits.gateways);
         setWithdrawalGateways(withdrawals.gateways);
 
-        // Fetch stats
-
-        // Set default selection
         if (deposits.gateways.length > 0) {
           setSelectedGateway(deposits.gateways[0].gateway_name);
         }
@@ -68,7 +64,6 @@ const PaymentGatewayLayer = () => {
 
   const handleSaveGateway = async (gatewayData) => {
     await toggleDepositStatus(gatewayData?.id, gatewayData);
-    // Refresh stats after save
     await fetchGatewayStats();
   };
 
@@ -86,7 +81,6 @@ const PaymentGatewayLayer = () => {
     try {
       const result = await toggleDepositStatus(id, data);
       console.log("Deposit toggled:", result);
-      // Refresh stats after toggle
       await fetchGatewayStats();
     } catch (err) {
       alert("Failed to toggle deposit status");
@@ -98,7 +92,6 @@ const PaymentGatewayLayer = () => {
     try {
       const result = await toggleWithdrawalStatus(id, data);
       console.log("Withdrawal toggled:", result);
-      // Refresh stats after toggle
       await fetchGatewayStats();
     } catch (err) {
       alert("Failed to toggle withdrawal status");
@@ -112,7 +105,6 @@ const PaymentGatewayLayer = () => {
         min_deposit_amount: gatewayData?.min_amount,
       });
       console.log("Limits updated:", result);
-      // Refresh stats after limit update
       await fetchGatewayStats();
     } catch (err) {
       alert("Failed to update deposit limits");
@@ -139,14 +131,10 @@ const PaymentGatewayLayer = () => {
         </h5>
       </div>
       <div className="card-body p-24">
-        {/* Gateway Stats Overview */}
-
-        {/* Type and Gateway Selection */}
         <div className="row gy-3 mb-4">
           <div className="col-md-6">
             <label className="form-label fw-semibold text-primary-light text-md mb-8">
-              Gateway Type
-              <span className="text-danger-600">*</span>
+              Gateway Type <span className="text-danger-600">*</span>
             </label>
             <select
               className="form-control radius-8 form-select"
@@ -160,8 +148,7 @@ const PaymentGatewayLayer = () => {
 
           <div className="col-md-6">
             <label className="form-label fw-semibold text-primary-light text-md mb-8">
-              Select Gateway
-              <span className="text-danger-600">*</span>
+              Select Gateway <span className="text-danger-600">*</span>
             </label>
             <select
               className="form-control radius-8 form-select"
@@ -182,7 +169,6 @@ const PaymentGatewayLayer = () => {
           </div>
         </div>
 
-        {/* Gateway Configuration */}
         <div className="row gy-4">
           {selectedGateway && !loading && (
             <GatewayComponent
@@ -197,65 +183,128 @@ const PaymentGatewayLayer = () => {
           )}
         </div>
 
-        {/* Gateway List Overview */}
-        <div className="mt-6">
-          <h6 className="text-lg fw-semibold text-primary-600 mb-3">
-            Available{" "}
-            {selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}{" "}
-            Gateways
-          </h6>
-          <div className="row gy-2">
-            {getCurrentGateways().map((gateway, index) => {
-              const stats = getStatsForGateway(gateway.gateway_name);
-              return (
-                <div key={index} className="col-md-4 col-sm-6">
-                  <div
-                    className={`p-3 border rounded cursor-pointer transition-all ${
-                      selectedGateway === gateway.gateway_name
-                        ? "border-primary bg-primary-50"
-                        : "border-gray-300 hover:border-primary"
+        <div className="row gy-3 mb-4 mt-4">
+          {getCurrentGateways().map((gateway, index) => {
+            const stats = getStatsForGateway(gateway.gateway_name);
+            const isGatewayDisabled = gateway?.is_active === false;
+            const isDepositDisabled =
+              selectedType === "deposit" && gateway?.is_deposit_enabled === false;
+
+            return (
+              <div key={index} className="col-md-4 col-sm-6">
+                <div
+                  className={`p-3 border rounded cursor-pointer transition-all ${selectedGateway === gateway.gateway_name
+                      ? "border-primary bg-primary-50"
+                      : "border-gray-300 hover:border-primary"
                     }`}
-                    onClick={() => setSelectedGateway(gateway.gateway_name)}
-                  >
-                    <div className="d-flex align-items-center justify-content-between mb-2">
-                      <span className="fw-medium text-sm">
-                        {gateway.gateway_name}
+                  onClick={() => setSelectedGateway(gateway.gateway_name)}
+                >
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <span className="fw-medium text-sm">
+                      {gateway.gateway_name}
+                    </span>
+                    {selectedType === "deposit" && gateway.min_amount && (
+                      <span className="text-xs text-muted">
+                        ₹{gateway.min_amount} - ₹{gateway.max_amount}
                       </span>
-                      {selectedType === "deposit" && gateway.min_amount && (
-                        <span className="text-xs text-muted">
-                          {gateway.min_amount} - {gateway.max_amount}
-                        </span>
-                      )}
+                    )}
+                  </div>
+
+                  <div className="text-m mb-2">
+                    <div>
+                      <strong>Status:</strong>{" "}
+                      <span className={isGatewayDisabled ? "text-danger" : "text-success"}>
+                        {isGatewayDisabled ? "Inactive" : "Active"}
+                      </span>
                     </div>
-                    {stats && (
-                      <div className="text-xs text-muted">
-                        <div className="d-flex justify-content-between">
-                          <span>
-                            Today:{" "}
-                            {formatCurrency(
-                              selectedType === "deposit"
-                                ? stats.today_deposits
-                                : stats.today_withdrawals
-                            )}
-                          </span>
-                          <span
-                            className={
-                              stats.net_amount >= 0
-                                ? "text-success"
-                                : "text-danger"
-                            }
-                          >
-                            Net: {formatCurrency(stats.net_amount)}
-                          </span>
-                        </div>
+                    {selectedType === "deposit" && (
+                      <div>
+                        <strong>Deposit:</strong>{" "}
+                        <span className={isDepositDisabled ? "text-danger" : "text-success"}>
+                          {isDepositDisabled ? "Disabled" : "Enabled"}
+                        </span>
                       </div>
                     )}
                   </div>
+
+                  {stats && (
+                    <div className="text-xs text-muted">
+                      <div className="d-flex justify-content-between">
+                        <span>
+                          Today: {formatCurrency(
+                            selectedType === "deposit"
+                              ? stats.today_deposits
+                              : stats.today_withdrawals
+                          )}
+                        </span>
+                        <span
+                          className={
+                            stats.net_amount >= 0 ? "text-success" : "text-danger"
+                          }
+                        >
+                          Net: {formatCurrency(stats.net_amount)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
+        {selectedGateway && getStatsForGateway(selectedGateway) && (
+          <div className="alert alert-info mb-4">
+            <div className="row text-sm">
+              <div className="col-md-3">
+                <strong>Today's Activity:</strong>
+                <br />
+                Deposits:{" "}
+                {formatCurrency(
+                  getStatsForGateway(selectedGateway).today_deposits
+                )}
+                <br />
+                Withdrawals:{" "}
+                {formatCurrency(
+                  getStatsForGateway(selectedGateway).today_withdrawals
+                )}
+              </div>
+              <div className="col-md-3">
+                <strong>Total Activity:</strong>
+                <br />
+                Deposits:{" "}
+                {formatCurrency(
+                  getStatsForGateway(selectedGateway).total_deposits
+                )}
+                <br />
+                Withdrawals:{" "}
+                {formatCurrency(
+                  getStatsForGateway(selectedGateway).total_withdrawals
+                )}
+              </div>
+              <div className="col-md-3">
+                <strong>Net Amount:</strong>
+                <br />
+                <span
+                  className={`fw-bold ${getStatsForGateway(selectedGateway).net_amount >= 0
+                      ? "text-success"
+                      : "text-danger"
+                    }`}
+                >
+                  {formatCurrency(
+                    getStatsForGateway(selectedGateway).net_amount
+                  )}
+                </span>
+              </div>
+              <div className="col-md-3">
+                <strong>Gateway Code:</strong>
+                <br />
+                <span className="badge bg-primary text-white">
+                  {getStatsForGateway(selectedGateway).gateway_code}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
         {gatewayStats.length > 0 && (
           <div className="mb-6">
             <h6 className="text-lg fw-semibold text-primary-600 mb-3">
@@ -305,11 +354,10 @@ const PaymentGatewayLayer = () => {
                             <div className="d-flex justify-content-between align-items-center">
                               <span className="text-muted">Net Amount</span>
                               <span
-                                className={`fw-bold ${
-                                  stat.net_amount >= 0
+                                className={`fw-bold ${stat.net_amount >= 0
                                     ? "text-success"
                                     : "text-danger"
-                                }`}
+                                  }`}
                               >
                                 {formatCurrency(stat.net_amount)}
                               </span>
@@ -324,62 +372,7 @@ const PaymentGatewayLayer = () => {
             </div>
           </div>
         )}
-        {/* Selected Gateway Stats */}
-        {selectedGateway && getStatsForGateway(selectedGateway) && (
-          <div className="alert alert-info mb-4">
-            <div className="row text-sm">
-              <div className="col-md-3">
-                <strong>Today's Activity:</strong>
-                <br />
-                Deposits:{" "}
-                {formatCurrency(
-                  getStatsForGateway(selectedGateway).today_deposits
-                )}
-                <br />
-                Withdrawals:{" "}
-                {formatCurrency(
-                  getStatsForGateway(selectedGateway).today_withdrawals
-                )}
-              </div>
-              <div className="col-md-3">
-                <strong>Total Activity:</strong>
-                <br />
-                Deposits:{" "}
-                {formatCurrency(
-                  getStatsForGateway(selectedGateway).total_deposits
-                )}
-                <br />
-                Withdrawals:{" "}
-                {formatCurrency(
-                  getStatsForGateway(selectedGateway).total_withdrawals
-                )}
-              </div>
-              <div className="col-md-3">
-                <strong>Net Amount:</strong>
-                <br />
-                <span
-                  className={`fw-bold ${
-                    getStatsForGateway(selectedGateway).net_amount >= 0
-                      ? "text-success"
-                      : "text-danger"
-                  }`}
-                >
-                  {formatCurrency(
-                    getStatsForGateway(selectedGateway).net_amount
-                  )}
-                </span>
-              </div>
-              <div className="col-md-3">
-                <strong>Gateway Code:</strong>
-                <br />
-                <span className="badge bg-primary text-white">
-                  {getStatsForGateway(selectedGateway).gateway_code}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
+        
         {loading && (
           <div className="text-center py-4">
             <div className="spinner-border text-primary" role="status">

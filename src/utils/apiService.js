@@ -31,6 +31,17 @@ export const getTodayRegistration = async () => {
     throw error;
   }
 };
+export const getBlockusers = async () => {
+  try {
+    const response = await axiosInstance.get(
+      "/admin/users/block"
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Failed to fetch block users:", error);
+    throw error;
+  }
+};
 
 export const getUserStats = async () => {
   try {
@@ -53,6 +64,16 @@ export const getTodayProfit = async () => {
 };
 
 export const getWeeklyProfit = async () => {
+  try {
+    const response = await axiosInstance.get("/admin/stats/profit/weekly");
+    return response.data;
+  } catch (error) {
+    console.error("Failed to fetch total users:", error);
+    throw error;
+  }
+};
+
+export const getPreviousWeeklyProfit = async () => {
   try {
     const response = await axiosInstance.get("/admin/stats/profit/weekly");
     return response.data;
@@ -442,34 +463,40 @@ export const fetchStats = async () => {
   }
 };
 
-export const getTeamLevelStats = async (userId, period) => {
+export const getTeamLevelStats = async (userId, period = "total") => {
   try {
     const response = await axiosInstance.get(
       `/users/admin/users/${userId}/team-level-stats?period=${period}`
     );
-    return response.data?.data;
+    console.log("Raw API Response:", response.data);
+    return response.data; // Full response with success and data
   } catch (error) {
-    console.error("Failed to fetch team level stats:", error);
+    console.error(`Failed to fetch team level stats for user ${userId}:`, error);
+    throw error;
   }
 };
+
 export const getRebateEarnings = async (userId) => {
   try {
     const response = await axiosInstance.get(
       `/users/admin/users/${userId}/rebate-earnings`
     );
-    return response.data?.data;
+    return response.data?.data || {};
   } catch (error) {
-    console.error("Failed to fetch rebate earnings:", error);
+    console.error(`Failed to fetch rebate earnings for user ${userId}:`, error);
+    throw error;
   }
 };
+
 export const getTeamSummary = async (userId) => {
   try {
     const response = await axiosInstance.get(
       `/users/admin/users/${userId}/team-summary`
     );
-    return response.data?.data;
+    return response.data?.data || {};
   } catch (error) {
-    console.error("Failed to fetch team summary:", error);
+    console.error(`Failed to fetch team summary for user ${userId}:`, error);
+    throw error;
   }
 };
 
@@ -493,12 +520,14 @@ export const processRecharge = async (id, action, notes) => {
   }
 };
 
-export const adjustUserBalance = async (userId, amount, type, reason) => {
+export const adjustUserBalance = async (userId, amount, type, reason, wagering) => {
   try {
     const payload = {
+      userId,
       amount,
       type, // 'add' or 'deduct'
       reason,
+      wagering,
     };
 
     const response = await axiosInstance.post(
